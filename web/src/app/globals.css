@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+	--color-canvas: #0F0F10;
+	--color-surface-1: #161618;
+	--color-surface-2: #1E1E21;
+	--color-surface-3: #26262A;
+	--color-divider: #2A2A2E;
+	--color-border: rgba(255, 255, 255, 0.08);
+
+	--color-text-primary: #ECECEE;
+	--color-text-secondary: #9A9AA2;
+	--color-text-muted: #66666E;
+
+	--color-accent: #3A7BFD;
+	--color-accent-hover: #2E63D6;
+	--color-lilac: #9D7BFF;
+
+	--font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	--font-heading: 'Sora', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@layer base {
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0;
+	}
+
+	html {
+		font-family: var(--font-sans);
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		scroll-behavior: smooth;
+		color-scheme: dark;
+	}
+
+	body {
+		background: var(--color-canvas);
+		color: var(--color-text-primary);
+		min-height: 100vh;
+		overflow-x: hidden;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	button {
+		font-family: inherit;
+		cursor: pointer;
+		border: none;
+		outline: none;
+	}
+
+	::selection {
+		background: rgba(58, 123, 253, 0.3);
+		color: #fff;
+	}
+
+	/* Sleek scrollbar styling for webkit browsers */
+	::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: var(--color-surface-3);
+		border-radius: 9999px;
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background: var(--color-text-muted);
+	}
+
+	/* Scrollbar styling for Firefox */
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-surface-3) transparent;
+	}
+}

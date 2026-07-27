@@ -85,7 +85,8 @@ export async function chatWithGroq(
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY not set");
 
-  const candidatesFormatted = candidates
+  const capped = candidates.slice(0, 40);
+  const candidatesFormatted = capped
     .map((p, i) => {
       const title = p?.pageTitle || "Untitled";
       const domain = p?.domain || "";

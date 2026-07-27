@@ -79,9 +79,6 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
   const [view, setView] = useState<ChartView>("activity");
 
-  const totalPages = pages.length;
-  const uniqueDomains = new Set(pages.map((p) => p.domain)).size;
-
   const hourlyData = useMemo(() => processHourlyData(pages), [pages]);
   const domainData = useMemo(() => processDomainData(pages), [pages]);
 
@@ -114,18 +111,6 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
             <p className="text-text-secondary text-sm">
               Your browsing activity at a glance.
             </p>
-          </div>
-
-          {/* Stats row */}
-          <div className="flex gap-4 justify-center mb-10">
-            <div className="px-6 py-4 rounded-2xl bg-surface-2 border border-divider">
-              <p className="text-3xl font-bold text-accent">{totalPages}</p>
-              <p className="text-xs text-text-muted mt-1">Pages Tracked</p>
-            </div>
-            <div className="px-6 py-4 rounded-2xl bg-surface-2 border border-divider">
-              <p className="text-3xl font-bold text-lilac">{uniqueDomains}</p>
-              <p className="text-xs text-text-muted mt-1">Unique Domains</p>
-            </div>
           </div>
 
           {/* Chart toggle */}
@@ -161,7 +146,7 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
                 <h2 className="text-sm font-medium text-text-secondary mb-4">
                   Pages visited by hour of day
                 </h2>
-                {totalPages === 0 ? (
+                {pages.length === 0 ? (
                   <p className="text-text-muted text-sm text-center py-12">No data yet.</p>
                 ) : (
                   <ResponsiveContainer width="100%" height={320}>

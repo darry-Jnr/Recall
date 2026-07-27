@@ -5,7 +5,7 @@ interface NavbarProps {
 
 export function Navbar({ showAnalytics, onToggleAnalytics }: NavbarProps) {
   return (
-    <nav className="relative z-10 w-full px-8 h-16 flex items-center justify-between">
+    <nav className="relative z-10 w-full px-4 md:px-8 h-16 flex items-center justify-between">
       <span className="font-[var(--font-heading)] text-lg font-extrabold tracking-[0.15em] uppercase">
         RECALL
       </span>

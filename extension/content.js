@@ -14,6 +14,28 @@ window.addEventListener("message", (event) => {
     return;
   }
 
+  if (event.data?.type === "RECALL_DELETE_PAGES") {
+    console.log("[Recall content.js] 🗑️ Forwarding RECALL_DELETE_PAGES:", event.data.urls);
+    try {
+      api.runtime.sendMessage(
+        { type: "RECALL_DELETE_PAGES", urls: event.data.urls },
+        (response) => {
+          if (api.runtime.lastError) {
+            console.error("[Recall content.js] ❌ delete failed:", api.runtime.lastError);
+            window.postMessage({ type: "RECALL_DELETE_RESULT", error: "Extension not connected" }, "*");
+          } else {
+            console.log("[Recall content.js] ✅ Delete result:", response);
+            window.postMessage({ type: "RECALL_DELETE_RESULT", deleted: response?.deleted || 0 }, "*");
+          }
+        }
+      );
+    } catch (err) {
+      console.error("[Recall content.js] ❌ delete threw:", err);
+      window.postMessage({ type: "RECALL_DELETE_RESULT", error: "Extension not connected" }, "*");
+    }
+    return;
+  }
+
   if (event.data?.type !== "RECALL_REQUEST_DATA") return;
 
   console.log("[Recall content.js] 📡 Calling background via runtime.sendMessage...");

@@ -3,7 +3,7 @@
   "name": "Recall",
   "version": "0.1.0",
   "description": "Recall — your browsing memory, locally stored.",
-  "permissions": ["tabs", "storage", "scripting"],
+  "permissions": ["tabs", "storage", "scripting", "history"],
   "host_permissions": [
     "<all_urls>"
   ],

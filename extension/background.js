@@ -11,6 +11,12 @@ api.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     tab.url.startsWith("about:")
   ) return;
 
+  const searchEngineDomains = [
+    "google.com/search", "bing.com/search", "duckduckgo.com",
+    "search.yahoo.com", "ask.com", "baidu.com/s",
+  ];
+  if (searchEngineDomains.some((d) => tab.url.includes(d))) return;
+
   try {
     const results = await api.scripting.executeScript({
       target: { tabId },
@@ -79,6 +85,24 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     api.storage.local.get({ pages: [] }).then((result) => {
       sendResponse({ pages: result.pages || [] });
     });
+    return true;
+  }
+
+  if (msg.type === "RECALL_DELETE_PAGES") {
+    const urls = msg.urls || [];
+    (async () => {
+      const result = await api.storage.local.get({ pages: [] });
+      const pages = result.pages.filter((p) => !urls.includes(p.url));
+      await api.storage.local.set({ pages });
+      for (const url of urls) {
+        try {
+          await api.history.deleteUrl({ url });
+        } catch {
+          // URL may not exist in Chrome history
+        }
+      }
+      sendResponse({ deleted: urls.length });
+    })();
     return true;
   }
 });

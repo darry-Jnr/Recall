@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from "react";
-import type { PageVisit } from "@/lib/types";
+import type { PageVisit, ClassifiedPage } from "@/lib/types";
 
 interface ChatMessage {
   id: string;
@@ -14,12 +14,33 @@ interface ChatInterfaceProps {
   pages: PageVisit[];
   loadingPages: boolean;
   connected: boolean;
+  refresh: () => void;
+  deletePages: (urls: string[]) => Promise<{ deleted: number }>;
 }
 
-export function ChatInterface({ pages, loadingPages, connected }: ChatInterfaceProps) {
+const DELETE_KEYWORDS = [
+  "delete", "remove", "clear", "wipe", "erase",
+  "get rid of", "trash", "purge", "clean",
+];
+
+function isDeleteIntent(text: string): boolean {
+  const lower = text.toLowerCase();
+  return DELETE_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+export function ChatInterface({
+  pages,
+  loadingPages,
+  connected,
+  refresh,
+  deletePages,
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [pendingDeletion, setPendingDeletion] = useState<ClassifiedPage[] | null>(null);
+  const [deletionQuery, setDeletionQuery] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -28,7 +49,7 @@ export function ChatInterface({ pages, loadingPages, connected }: ChatInterfaceP
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isThinking]);
+  }, [messages, isThinking, pendingDeletion]);
 
   const handleSend = async (textToSend?: string) => {
     const query = (textToSend || input).trim();
@@ -46,38 +67,123 @@ export function ChatInterface({ pages, loadingPages, connected }: ChatInterfaceP
     setInput("");
     setIsThinking(true);
 
-    try {
-      const res = await fetch("/api/groq-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-          candidates: pages,
-        }),
-      });
+    if (isDeleteIntent(query)) {
+      try {
+        const res = await fetch("/api/classify-pages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, pages }),
+        });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to generate response");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to classify pages");
 
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.response || "No response received.",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
+        const matches: ClassifiedPage[] = data.matches || [];
 
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err) {
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `Sorry, an error occurred: ${err instanceof Error ? err.message : "Unknown error"}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsThinking(false);
+        if (matches.length === 0) {
+          const assistantMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: `I couldn't find any pages matching "${query}" in your browsing history. No pages were deleted.`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+          setMessages((prev) => [...prev, assistantMessage]);
+        } else {
+          setPendingDeletion(matches);
+          setDeletionQuery(query);
+
+          const siteList = matches
+            .map((m, i) => `${i + 1}. **${m.pageTitle}** (${m.domain})\n   ${m.reason}`)
+            .join("\n\n");
+
+          const assistantMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: `I found **${matches.length}** page(s) matching your request to delete "${query}":\n\n${siteList}\n\nReview the list above and click **Confirm Delete** below to remove them from your history, or **Cancel** to keep them.`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+          setMessages((prev) => [...prev, assistantMessage]);
+        }
+      } catch (err) {
+        const errorMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `Sorry, an error occurred while classifying pages: ${err instanceof Error ? err.message : "Unknown error"}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsThinking(false);
+      }
+    } else {
+      try {
+        const res = await fetch("/api/groq-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+            candidates: pages,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to generate response");
+
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: data.response || "No response received.",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+      } catch (err) {
+        const errorMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `Sorry, an error occurred: ${err instanceof Error ? err.message : "Unknown error"}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsThinking(false);
+      }
     }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeletion || isDeleting) return;
+    setIsDeleting(true);
+
+    const urls = pendingDeletion.map((m) => m.url);
+    const result = await deletePages(urls);
+
+    const successMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: "assistant",
+      content:
+        result.deleted > 0
+          ? `Done! Deleted **${result.deleted}** page(s) from your Recall history and Chrome browsing history.`
+          : `Delete command was sent, but it seems no pages were removed. The extension may not be connected.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+    setMessages((prev) => [...prev, successMessage]);
+    setPendingDeletion(null);
+    setDeletionQuery("");
+    setIsDeleting(false);
+    refresh();
+  };
+
+  const handleCancelDelete = () => {
+    const cancelMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: "assistant",
+      content: `Deletion cancelled. Your browsing history remains intact.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+    setMessages((prev) => [...prev, cancelMessage]);
+    setPendingDeletion(null);
+    setDeletionQuery("");
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -119,7 +225,7 @@ export function ChatInterface({ pages, loadingPages, connected }: ChatInterfaceP
               Ask Recall about your browsing history
             </h2>
             <p className="text-text-secondary text-sm max-w-md">
-              Recall continuously indexes the pages you visit. Type a question below to find anything you've seen.
+              Recall continuously indexes the pages you visit. Type a question below to find anything you&apos;ve seen.
             </p>
           </div>
         ) : (
@@ -168,6 +274,66 @@ export function ChatInterface({ pages, loadingPages, connected }: ChatInterfaceP
             </div>
           </div>
         )}
+
+        {/* Deletion confirmation card */}
+        {pendingDeletion && (
+          <div className="max-w-2xl mx-auto mt-4 p-5 rounded-2xl bg-surface-2 border border-red-500/30 shadow-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center">
+                <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-text-primary">
+                  {pendingDeletion.length} page(s) to delete
+                </p>
+                <p className="text-xs text-text-muted">
+                  Matched by: &quot;{deletionQuery}&quot;
+                </p>
+              </div>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto space-y-2 mb-4 pr-1">
+              {pendingDeletion.map((page, i) => (
+                <div
+                  key={`${page.url}-${i}`}
+                  className="flex flex-col gap-0.5 p-3 rounded-xl bg-canvas border border-divider"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-text-muted">{i + 1}.</span>
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {page.pageTitle}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 ml-5">
+                    <span className="text-xs text-accent truncate">{page.domain}</span>
+                    <span className="text-xs text-text-muted">— {page.reason}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              >
+                {isDeleting ? "Deleting..." : "Confirm Delete"}
+              </button>
+              <button
+                onClick={handleCancelDelete}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-surface-2 border border-divider hover:bg-surface-3 text-text-secondary text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -188,7 +354,7 @@ export function ChatInterface({ pages, loadingPages, connected }: ChatInterfaceP
             onKeyDown={handleKeyDown}
             placeholder={
               connected
-                ? "Ask anything about pages you visited (e.g. did I check Liverpool?)..."
+                ? "Ask anything or type 'delete all betting sites'..."
                 : "Connecting extension..."
             }
             disabled={isThinking}
@@ -215,35 +381,42 @@ export function ChatInterface({ pages, loadingPages, connected }: ChatInterfaceP
 }
 
 /**
- * Parses markdown links [Title](url) and renders them as styled blue underlined clickable links.
+ * Parses markdown links [Title](url), **bold** text, and *italic* text, rendering them as styled elements.
  */
 function renderFormattedContent(text: string) {
-  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const regex = /(\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
   const parts = [];
   let lastIndex = 0;
   let match;
 
-  while ((match = linkRegex.exec(text)) !== null) {
+  while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push(text.substring(lastIndex, match.index));
     }
 
-    const title = match[1];
-    const url = match[2];
+    if (match[2] && match[3]) {
+      parts.push(
+        <a
+          key={match.index}
+          href={match[3]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent font-semibold underline underline-offset-4 hover:text-accent-hover transition-colors mx-0.5"
+        >
+          {match[2]}
+        </a>
+      );
+    } else if (match[4]) {
+      parts.push(
+        <strong key={match.index} className="font-semibold">{match[4]}</strong>
+      );
+    } else if (match[5]) {
+      parts.push(
+        <em key={match.index} className="text-[0.85em] italic text-text-secondary">{match[5]}</em>
+      );
+    }
 
-    parts.push(
-      <a
-        key={match.index}
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-accent font-semibold underline underline-offset-4 hover:text-accent-hover transition-colors mx-0.5"
-      >
-        {title}
-      </a>
-    );
-
-    lastIndex = linkRegex.lastIndex;
+    lastIndex = regex.lastIndex;
   }
 
   if (lastIndex < text.length) {

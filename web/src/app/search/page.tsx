@@ -11,11 +11,13 @@ export default function SearchPage() {
       <Navbar />
       <main className="flex-1 flex flex-col pt-4">
         <ExtensionBridge>
-          {({ pages, loading, connected }) => (
+          {({ pages, loading, connected, refresh, deletePages }) => (
             <ChatInterface
               pages={pages as PageVisit[]}
               loadingPages={loading}
               connected={connected}
+              refresh={refresh}
+              deletePages={deletePages}
             />
           )}
         </ExtensionBridge>

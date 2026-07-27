@@ -23,3 +23,10 @@ export interface GroqSearchResult extends PageVisit {
 export interface GroqSearchResponse {
   results: GroqSearchResult[];
 }
+
+export interface ClassifiedPage {
+  url: string;
+  pageTitle: string;
+  domain: string;
+  reason: string;
+}

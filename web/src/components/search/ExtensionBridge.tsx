@@ -9,6 +9,7 @@ interface ExtensionBridgeProps {
     loading: boolean;
     connected: boolean;
     refresh: () => void;
+    deletePages: (urls: string[]) => Promise<{ deleted: number }>;
   }) => ReactNode;
 }
 
@@ -20,6 +21,30 @@ export function ExtensionBridge({ children }: ExtensionBridgeProps) {
   const requestData = useCallback(() => {
     setLoading(true);
     window.postMessage({ type: "RECALL_REQUEST_DATA" }, "*");
+  }, []);
+
+  const deletePages = useCallback((urls: string[]) => {
+    return new Promise<{ deleted: number }>((resolve) => {
+      const handler = (event: MessageEvent) => {
+        if (event.data?.type !== "RECALL_DELETE_RESULT") return;
+        window.removeEventListener("message", handler);
+        clearTimeout(timeout);
+        if (event.data.error) {
+          console.error("[Recall web] ❌ Delete failed:", event.data.error);
+          resolve({ deleted: 0 });
+        } else {
+          resolve({ deleted: event.data.deleted || 0 });
+        }
+      };
+
+      const timeout = setTimeout(() => {
+        window.removeEventListener("message", handler);
+        resolve({ deleted: 0 });
+      }, 5000);
+
+      window.addEventListener("message", handler);
+      window.postMessage({ type: "RECALL_DELETE_PAGES", urls }, "*");
+    });
   }, []);
 
   useEffect(() => {
@@ -75,5 +100,5 @@ export function ExtensionBridge({ children }: ExtensionBridgeProps) {
     };
   }, []);
 
-  return <>{children({ pages, loading, connected, refresh: requestData })}</>;
+  return <>{children({ pages, loading, connected, refresh: requestData, deletePages })}</>;
 }

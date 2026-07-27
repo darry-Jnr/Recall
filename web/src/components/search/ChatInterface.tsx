@@ -354,7 +354,7 @@ export function ChatInterface({
             onKeyDown={handleKeyDown}
             placeholder={
               connected
-                ? "Ask anything or type 'delete all betting sites'..."
+                ? "What did you browse today?"
                 : "Connecting extension..."
             }
             disabled={isThinking}

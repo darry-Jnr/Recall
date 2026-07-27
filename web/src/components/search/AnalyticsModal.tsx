@@ -20,6 +20,7 @@ interface AnalyticsModalProps {
 }
 
 type ChartView = "activity" | "domains";
+type DateFilter = "today" | "yesterday" | "7days" | "all";
 
 const PIE_COLORS = [
   "#3A7BFD",
@@ -31,6 +32,38 @@ const PIE_COLORS = [
   "#7BABFF",
   "#C4AAFF",
 ];
+
+const DATE_FILTERS: { key: DateFilter; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "yesterday", label: "Yesterday" },
+  { key: "7days", label: "Last 7 Days" },
+  { key: "all", label: "All Time" },
+];
+
+function filterByDate(pages: PageVisit[], filter: DateFilter): PageVisit[] {
+  if (filter === "all") return pages;
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (filter === "today") {
+    return pages.filter((p) => new Date(p.visitedTime) >= startOfDay);
+  }
+  if (filter === "yesterday") {
+    const yesterdayStart = new Date(startOfDay);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const yesterdayEnd = new Date(startOfDay);
+    return pages.filter((p) => {
+      const t = new Date(p.visitedTime);
+      return t >= yesterdayStart && t < yesterdayEnd;
+    });
+  }
+  if (filter === "7days") {
+    const weekAgo = new Date(startOfDay);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return pages.filter((p) => new Date(p.visitedTime) >= weekAgo);
+  }
+  return pages;
+}
 
 function processHourlyData(pages: PageVisit[]) {
   const hourCounts: Record<number, number> = {};
@@ -49,24 +82,53 @@ function processHourlyData(pages: PageVisit[]) {
 }
 
 function processDomainData(pages: PageVisit[]) {
-  const domainCounts: Record<string, number> = {};
-  pages.forEach((p) => {
-    const domain = p.domain || "unknown";
-    domainCounts[domain] = (domainCounts[domain] || 0) + 1;
-  });
+  const sorted = [...pages].sort(
+    (a, b) => new Date(a.visitedTime).getTime() - new Date(b.visitedTime).getTime()
+  );
 
-  const sorted = Object.entries(domainCounts)
+  const domainMinutes: Record<string, number> = {};
+
+  for (let i = 0; i < sorted.length; i++) {
+    const domain = sorted[i].domain || "unknown";
+    let elapsed = 0;
+
+    if (i < sorted.length - 1) {
+      const diff =
+        new Date(sorted[i + 1].visitedTime).getTime() -
+        new Date(sorted[i].visitedTime).getTime();
+      elapsed = Math.min(diff / 60000, 30);
+    } else {
+      elapsed = 2;
+    }
+
+    domainMinutes[domain] = (domainMinutes[domain] || 0) + elapsed;
+  }
+
+  const sortedDomains = Object.entries(domainMinutes)
     .sort((a, b) => b[1] - a[1]);
 
-  const top = sorted.slice(0, 7);
-  const otherCount = sorted.slice(7).reduce((sum, [, count]) => sum + count, 0);
+  const top = sortedDomains.slice(0, 7);
+  const otherMinutes = sortedDomains.slice(7).reduce((sum, [, m]) => sum + m, 0);
 
-  const result = top.map(([name, value]) => ({ name, value }));
-  if (otherCount > 0) result.push({ name: "Other", value: otherCount });
+  const result = top.map(([name, minutes]) => ({
+    name,
+    minutes: Math.round(minutes * 10) / 10,
+  }));
+  if (otherMinutes > 0) {
+    result.push({ name: "Other", minutes: Math.round(otherMinutes * 10) / 10 });
+  }
   return result;
 }
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) => {
+function formatMinutes(m: number): string {
+  if (m < 1) return `${Math.round(m * 60)}s`;
+  if (m < 60) return `${Math.round(m)}m`;
+  const h = Math.floor(m / 60);
+  const rem = Math.round(m % 60);
+  return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
+}
+
+const BarTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="px-3 py-2 rounded-xl bg-surface-2 border border-divider shadow-lg text-xs">
@@ -78,9 +140,11 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 
 export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
   const [view, setView] = useState<ChartView>("activity");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
-  const hourlyData = useMemo(() => processHourlyData(pages), [pages]);
-  const domainData = useMemo(() => processDomainData(pages), [pages]);
+  const filteredPages = useMemo(() => filterByDate(pages, dateFilter), [pages, dateFilter]);
+  const hourlyData = useMemo(() => processHourlyData(filteredPages), [filteredPages]);
+  const domainData = useMemo(() => processDomainData(filteredPages), [filteredPages]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-canvas">
@@ -104,13 +168,32 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
       <div className="flex-1 overflow-y-auto px-8 py-10">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-10">
+          <div className="text-center mb-8">
             <h1 className="text-2xl font-semibold text-text-primary mb-2 tracking-tight">
               This is your analytics
             </h1>
             <p className="text-text-secondary text-sm">
               Your browsing activity at a glance.
             </p>
+          </div>
+
+          {/* Date filter */}
+          <div className="flex justify-center mb-6">
+            <div className="flex gap-1 p-1 rounded-xl bg-surface-2 border border-divider">
+              {DATE_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setDateFilter(f.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                    dateFilter === f.key
+                      ? "bg-surface-3 text-text-primary shadow-sm"
+                      : "text-text-muted hover:text-text-secondary"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Chart toggle */}
@@ -134,7 +217,7 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
                     : "text-text-secondary hover:text-text-primary"
                 }`}
               >
-                Top Domains
+                Time by Domain
               </button>
             </div>
           </div>
@@ -146,7 +229,7 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
                 <h2 className="text-sm font-medium text-text-secondary mb-4">
                   Pages visited by hour of day
                 </h2>
-                {pages.length === 0 ? (
+                {filteredPages.length === 0 ? (
                   <p className="text-text-muted text-sm text-center py-12">No data yet.</p>
                 ) : (
                   <ResponsiveContainer width="100%" height={320}>
@@ -164,7 +247,7 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
                         tickLine={false}
                         allowDecimals={false}
                       />
-                      <Tooltip content={<CustomTooltip />} cursor={false} />
+                      <Tooltip content={<BarTooltip />} cursor={false} />
                       <Bar
                         dataKey="pages"
                         fill="rgba(58, 123, 253, 0.55)"
@@ -178,7 +261,7 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
             ) : (
               <>
                 <h2 className="text-sm font-medium text-text-secondary mb-4">
-                  Visits by domain
+                  Estimated time spent by domain
                 </h2>
                 {domainData.length === 0 ? (
                   <p className="text-text-muted text-sm text-center py-12">No data yet.</p>
@@ -188,7 +271,7 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
                       <PieChart>
                         <Pie
                           data={domainData}
-                          dataKey="value"
+                          dataKey="minutes"
                           nameKey="name"
                           cx="50%"
                           cy="50%"
@@ -208,7 +291,7 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
                             return (
                               <div className="px-3 py-2 rounded-xl bg-surface-2 border border-divider shadow-lg text-xs">
                                 <p className="text-text-primary font-semibold">{d.name}</p>
-                                <p className="text-text-muted">{d.value} page(s)</p>
+                                <p className="text-text-muted">{formatMinutes(d.minutes)}</p>
                               </div>
                             );
                           }}
@@ -223,7 +306,7 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
                             style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
                           />
                           <span className="text-sm text-text-primary truncate flex-1">{d.name}</span>
-                          <span className="text-xs text-text-muted">{d.value}</span>
+                          <span className="text-xs text-text-muted">{formatMinutes(d.minutes)}</span>
                         </div>
                       ))}
                     </div>

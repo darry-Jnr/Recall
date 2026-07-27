@@ -3,6 +3,23 @@ const api = typeof browser !== "undefined" ? browser : chrome;
 
 const MAX_PAGES = 5000;
 
+const SEARCH_ENGINE_PATTERNS = [
+  "google.com/search", "bing.com/search", "duckduckgo.com",
+  "search.yahoo.com", "ask.com", "baidu.com/s",
+];
+
+function isSearchEngineUrl(url) {
+  return SEARCH_ENGINE_PATTERNS.some((d) => url.includes(d));
+}
+
+// One-time cleanup: remove old search engine referrer pages from storage
+api.storage.local.get({ pages: [], _cleanedSearchEngines: false }, (result) => {
+  if (result._cleanedSearchEngines) return;
+  const cleaned = result.pages.filter((p) => !isSearchEngineUrl(p.url));
+  api.storage.local.set({ pages: cleaned, _cleanedSearchEngines: true });
+  console.log(`[Recall] Cleaned ${result.pages.length - cleaned.length} search engine pages from storage`);
+});
+
 api.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete" || !tab.url || !tab.title) return;
   if (
@@ -11,11 +28,7 @@ api.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     tab.url.startsWith("about:")
   ) return;
 
-  const searchEngineDomains = [
-    "google.com/search", "bing.com/search", "duckduckgo.com",
-    "search.yahoo.com", "ask.com", "baidu.com/s",
-  ];
-  if (searchEngineDomains.some((d) => tab.url.includes(d))) return;
+  if (isSearchEngineUrl(tab.url)) return;
 
   try {
     const results = await api.scripting.executeScript({

@@ -14,20 +14,19 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-canvas">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 h-16 border-b border-divider">
+      <div className="relative flex items-center justify-between px-8 h-16 border-b border-divider">
         <span className="font-[var(--font-heading)] text-lg font-extrabold tracking-[0.15em] uppercase">
           RECALL
         </span>
-        <button
-          onClick={onClose}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-all duration-200"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-          Close
-        </button>
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <button
+            onClick={onClose}
+            className="text-sm font-medium text-text-secondary hover:text-text-primary transition-all duration-200 underline underline-offset-4"
+          >
+            Back to Chat
+          </button>
+        </div>
+        <div className="w-20" />
       </div>
 
       {/* Content centered */}

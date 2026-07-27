@@ -22,7 +22,7 @@ export function Hero() {
           Enter Recall
         </a>
         <a
-          href="#"
+          href="/install"
           className="h-12 px-8 rounded-full bg-surface-2 hover:bg-surface-3 text-text-primary font-[var(--font-heading)] text-[15px] font-semibold transition-colors inline-flex items-center gap-2 border border-divider"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

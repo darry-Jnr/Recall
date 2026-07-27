@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -128,6 +128,55 @@ function formatMinutes(m: number): string {
   return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
 }
 
+function FilterDropdown({ value, onChange }: { value: DateFilter; onChange: (f: DateFilter) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const current = DATE_FILTERS.find((f) => f.key === value);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-text-muted hover:text-text-secondary hover:bg-surface-3 transition-all duration-200"
+      >
+        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+        </svg>
+        {current?.label}
+        <svg className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-10 w-36 py-1 rounded-xl bg-surface-3 border border-divider shadow-xl">
+          {DATE_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => { onChange(f.key); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-xs transition-colors duration-150 ${
+                value === f.key
+                  ? "text-accent font-medium"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-2"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const BarTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -177,25 +226,6 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
             </p>
           </div>
 
-          {/* Date filter */}
-          <div className="flex justify-center mb-6">
-            <div className="flex gap-1 p-1 rounded-xl bg-surface-2 border border-divider">
-              {DATE_FILTERS.map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => setDateFilter(f.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                    dateFilter === f.key
-                      ? "bg-surface-3 text-text-primary shadow-sm"
-                      : "text-text-muted hover:text-text-secondary"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Chart toggle */}
           <div className="flex justify-center mb-8">
             <div className="flex gap-1 p-1 rounded-xl bg-surface-2 border border-divider">
@@ -226,9 +256,12 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
           <div className="rounded-2xl bg-surface-2 border border-divider p-6">
             {view === "activity" ? (
               <>
-                <h2 className="text-sm font-medium text-text-secondary mb-4">
-                  Pages visited by hour of day
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-medium text-text-secondary">
+                    Pages visited by hour of day
+                  </h2>
+                  <FilterDropdown value={dateFilter} onChange={setDateFilter} />
+                </div>
                 {filteredPages.length === 0 ? (
                   <p className="text-text-muted text-sm text-center py-12">No data yet.</p>
                 ) : (
@@ -260,9 +293,12 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
               </>
             ) : (
               <>
-                <h2 className="text-sm font-medium text-text-secondary mb-4">
-                  Estimated time spent by domain
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-medium text-text-secondary">
+                    Estimated time spent by domain
+                  </h2>
+                  <FilterDropdown value={dateFilter} onChange={setDateFilter} />
+                </div>
                 {domainData.length === 0 ? (
                   <p className="text-text-muted text-sm text-center py-12">No data yet.</p>
                 ) : (

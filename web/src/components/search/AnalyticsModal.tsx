@@ -188,7 +188,7 @@ const BarTooltip = ({ active, payload, label }: { active?: boolean; payload?: Ar
 };
 
 export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
-  const [view, setView] = useState<ChartView>("activity");
+  const [view, setView] = useState<ChartView>("domains");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
   const filteredPages = useMemo(() => filterByDate(pages, dateFilter), [pages, dateFilter]);
@@ -230,16 +230,6 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
           <div className="flex justify-center mb-8">
             <div className="flex gap-1 p-1 rounded-xl bg-surface-2 border border-divider">
               <button
-                onClick={() => setView("activity")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  view === "activity"
-                    ? "bg-accent text-white shadow-md"
-                    : "text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                Activity by Hour
-              </button>
-              <button
                 onClick={() => setView("domains")}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   view === "domains"
@@ -248,6 +238,16 @@ export function AnalyticsModal({ pages, onClose }: AnalyticsModalProps) {
                 }`}
               >
                 Time by Domain
+              </button>
+              <button
+                onClick={() => setView("activity")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  view === "activity"
+                    ? "bg-accent text-white shadow-md"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                Activity by Hour
               </button>
             </div>
           </div>

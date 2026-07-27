@@ -15,7 +15,7 @@
 
 ## Download & Install
 
-> **[Download the latest Recall extension](https://github.com/darry-Jnr/Recall/releases/latest)** — or visit the [install guide](https://recall-web.vercel.app/install) for step-by-step instructions.
+> **[Download the latest Recall extension](https://github.com/darry-Jnr/Recall/releases/download/v1.0.0/Recall-Extension.zip)** — or visit the [install guide](https://recall-appp.vercel.app/install) for step-by-step instructions.
 
 ---
 
@@ -41,7 +41,7 @@
 
 ### Step 1: Download & Extract
 
-Download `Recall-Extension.zip` from the [Releases page](https://github.com/darry-Jnr/Recall/releases/latest) and extract the zip folder onto your computer.
+Download `Recall-Extension.zip` from the [Releases page](https://github.com/darry-Jnr/Recall/releases/download/v1.0.0/Recall-Extension.zip) and extract the zip folder onto your computer.
 
 ### Step 2: Enable Developer Mode
 
